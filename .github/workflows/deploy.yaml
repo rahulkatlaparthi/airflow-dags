@@ -26,8 +26,12 @@ jobs:
       run: |
         WEB_POD=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
         SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
-        kubectl cp dags/hello_world.py airflow/$WEB_POD:/opt/airflow/dags/
-        kubectl cp dags/hello_world.py airflow/$SCHEDULER_POD:/opt/airflow/dags/
+
+        # Copy to webserver container explicitly
+        kubectl cp dags/hello_world.py airflow/$WEB_POD:/opt/airflow/dags/ -c webserver
+
+        # Copy to scheduler container explicitly
+        kubectl cp dags/hello_world.py airflow/$SCHEDULER_POD:/opt/airflow/dags/ -c scheduler
 
     - name: Restart Airflow components (optional but recommended)
       run: |
