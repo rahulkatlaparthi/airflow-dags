@@ -5,6 +5,8 @@ on:
     paths:
       - 'dags/**'
 
+  workflow_dispatch:  # ✅ This allows you to manually trigger the workflow from GitHub UI
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
