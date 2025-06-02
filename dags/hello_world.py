@@ -11,7 +11,7 @@ with DAG(
     schedule_interval='@daily',
     catchup=False,
 ) as dag:
-    PythonOperator(
+    task = PythonOperator(
         task_id='say_hello',
         python_callable=say_hello
     )
