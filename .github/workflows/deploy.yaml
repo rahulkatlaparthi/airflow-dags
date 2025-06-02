@@ -4,8 +4,7 @@ on:
   push:
     paths:
       - 'dags/**'
-
-  workflow_dispatch:  # ✅ This allows you to manually trigger the workflow from GitHub UI
+  workflow_dispatch:  # ✅ Manual trigger from GitHub UI
 
 jobs:
   deploy:
@@ -23,7 +22,14 @@ jobs:
     - name: Set AKS context
       run: az aks get-credentials --resource-group cvx_group --name sample --overwrite-existing
 
-    - name: Copy DAG to Airflow pod
+    - name: Copy DAG to Airflow Webserver & Scheduler
       run: |
-        POD_NAME=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
-        kubectl cp dags/hello_world.py airflow/$POD_NAME:/opt/airflow/dags/
+        WEB_POD=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
+        SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
+        kubectl cp dags/hello_world.py airflow/$WEB_POD:/opt/airflow/dags/
+        kubectl cp dags/hello_world.py airflow/$SCHEDULER_POD:/opt/airflow/dags/
+
+    - name: Restart Airflow components (optional but recommended)
+      run: |
+        kubectl rollout restart deployment airflow-webserver -n airflow
+        kubectl rollout restart deployment airflow-scheduler -n airflow
