@@ -4,7 +4,7 @@ on:
   push:
     paths:
       - 'dags/**'
-  workflow_dispatch:  # ✅ Manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -14,28 +14,50 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Install Azure CLI
+      run: |
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        az --version
+
     - name: Azure Login
       uses: azure/login@v1
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
     - name: Set AKS context
-      run: az aks get-credentials --resource-group cvx_group --name sample --overwrite-existing
-
-    - name: Copy DAG to Airflow Webserver & Scheduler
       run: |
-        WEB_POD=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
-        echo "Webserver pod name: $WEB_POD"
+        az aks get-credentials --resource-group cvx_group --name sample --overwrite-existing
+        kubectl config current-context
+
+    - name: Verify Airflow pods
+      run: |
+        kubectl get pods -n airflow -o wide
+        SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}" || { echo "Error: Scheduler pod not found" >&2; exit 1; })
+        WEB_POD=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}" || { echo "Error: Webserver pod not found" >&2; exit 1; })
+        echo "Scheduler pod: $SCHEDULER_POD"
+        echo "Webserver pod: $WEB_POD"
+
+    - name: Wait for GitSync to complete
+      run: |
         SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
-        echo "Scheduler pod name: $SCHEDULER_POD"
+        echo "Waiting for GitSync to sync DAGs..."
+        sleep 60  # Adjust based on dags.gitSync.syncWait
+        kubectl logs -n airflow $SCHEDULER_POD -c git-sync || { echo "Error: Failed to fetch git-sync logs" >&2; exit 1; }
 
-        # Copy to webserver container explicitly
-        kubectl cp dags/hello_world.py airflow/$WEB_POD:/opt/airflow/dags/ -c webserver
+    - name: Verify DAG presence
+      run: |
+        SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
+        kubectl exec -n airflow -c scheduler $SCHEDULER_POD -- ls -l /opt/airflow/dags/ || { echo "Error: Failed to list DAGs directory" >&2; exit 1; }
+        kubectl exec -n airflow -c scheduler $SCHEDULER_POD -- cat /opt/airflow/dags/hello_world.py || { echo "Error: Failed to read hello_world.py" >&2; exit 1; }
 
-        # Copy to scheduler container explicitly
-        kubectl cp dags/hello_world.py airflow/$SCHEDULER_POD:/opt/airflow/dags/ -c scheduler
-
-    - name: Restart Airflow components (optional but recommended)
+    - name: Restart Airflow components
       run: |
         kubectl rollout restart deployment airflow-webserver -n airflow
         kubectl rollout restart deployment airflow-scheduler -n airflow
+        kubectl rollout status deployment airflow-webserver -n airflow --timeout=300s
+        kubectl rollout status deployment airflow-scheduler -n airflow --timeout=300s
+
+    - name: Check DAG in Airflow
+      run: |
+        SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
+        kubectl exec -n airflow -c scheduler $SCHEDULER_POD -- airflow dags list || { echo "Error: Failed to list DAGs" >&2; exit 1; }
