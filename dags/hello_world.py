@@ -1,17 +1,11 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.operators.dummy import DummyOperator
 from datetime import datetime
-
-def say_hello():
-    print("Hello, Airflow from AKS Cluster!!!!!!")
 
 with DAG(
     dag_id='hello_world',
-    start_date=datetime(2024, 1, 1),
-    schedule_interval='@daily',
+    start_date=datetime(2025, 1, 1),
+    schedule_interval=None,
     catchup=False,
 ) as dag:
-    task = PythonOperator(
-        task_id='say_hello',
-        python_callable=say_hello
-    )
+    task = DummyOperator(task_id='dummy_task')
