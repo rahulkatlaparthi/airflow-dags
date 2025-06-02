@@ -1,0 +1,27 @@
+name: Deploy DAG to AKS
+
+on:
+  push:
+    paths:
+      - 'dags/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Set AKS context
+      run: az aks get-credentials --resource-group <your-resource-group> --name <your-aks-cluster>
+
+    - name: Copy DAG to Airflow pod
+      run: |
+        POD_NAME=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
+        kubectl cp dags/hello_world.py airflow/$POD_NAME:/opt/airflow/dags/
