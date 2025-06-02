@@ -5,7 +5,7 @@ on:
     paths:
       - 'dags/**'
     branches:
-      - main    # <-- Add your branch(es) here
+      - sample   # <-- Add your branch(es) here
       # - master # Uncomment if you want master too
   workflow_dispatch:  # Manual trigger from GitHub UI
 
