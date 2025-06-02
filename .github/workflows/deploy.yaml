@@ -4,7 +4,10 @@ on:
   push:
     paths:
       - 'dags/**'
-  workflow_dispatch:  # ✅ Manual trigger from GitHub UI
+    branches:
+      - main    # <-- Add your branch(es) here
+      # - master # Uncomment if you want master too
+  workflow_dispatch:  # Manual trigger from GitHub UI
 
 jobs:
   deploy:
@@ -25,7 +28,9 @@ jobs:
     - name: Copy DAG to Airflow Webserver & Scheduler
       run: |
         WEB_POD=$(kubectl get pod -n airflow -l component=webserver -o jsonpath="{.items[0].metadata.name}")
+        echo "Webserver pod name: $WEB_POD"
         SCHEDULER_POD=$(kubectl get pod -n airflow -l component=scheduler -o jsonpath="{.items[0].metadata.name}")
+        echo "Scheduler pod name: $SCHEDULER_POD"
 
         # Copy to webserver container explicitly
         kubectl cp dags/hello_world.py airflow/$WEB_POD:/opt/airflow/dags/ -c webserver
