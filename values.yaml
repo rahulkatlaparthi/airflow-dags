@@ -6,6 +6,8 @@ dags:
     subPath: dags
 
 webserver:
+  service:
+    type: LoadBalancer
   defaultUser:
     enabled: true
     username: admin
