@@ -4,7 +4,6 @@ dags:
     repo: https://github.com/rahulkatlaparthi/airflow-dags.git
     branch: test
     subPath: dags
-    syncInterval: 60s
 
 webserver:
   defaultUser:
